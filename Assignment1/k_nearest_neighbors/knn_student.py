@@ -28,24 +28,34 @@ def pairwise_dist(X_test, X_train, metric, mode):
     if metric == "l2":
         if mode == "two_loops":
             # =============== TODO (students, REQUIRED) ===============
+            dists = np.zeros((Nte, Ntr), dtype=np.float64)
+            for i in range(Nte):
+                for j in range(Ntr):
+                    dists[i][j] = float(np.sqrt(np.sum((X_test[i] - X_train[j]) ** 2)))
 
+            return dists
             # =========================================================
-            raise NotImplementedError("Implement L2 two_loops")
 
         elif mode == "no_loops":
             # =============== TODO (students, REQUIRED) ===============
-
+            test_sq = np.sum(X_test ** 2, axis=1, keepdims=True)
+            train_sq = np.sum(X_train ** 2, axis=1, keepdims=True)
+            dot = X_test @ X_train.T
+            
+            return np.sqrt(np.maximum(test_sq + train_sq.T - 2 * dot, 0))
             # =========================================================
-            raise NotImplementedError("Implement L2 no_loops")
 
         else:
             raise ValueError("Unknown mode for L2.")
 
     elif metric == "cosine":
         # =============== TODO (students, REQUIRED) ===============
+        test_norm = np.linalg.norm(X_test, axis=1, keepdims=True)
+        train_norm = np.linalg.norm(X_train, axis=1, keepdims=True)
+        dot = X_test @ X_train.T
 
+        return 1 - dot / (test_norm @ train_norm.T) 
         # ================================================
-        raise NotImplementedError("cosine distance")
     else:
         raise ValueError("metric must be 'l2' or 'cosine'.")
 
@@ -70,9 +80,9 @@ def knn_predict(X_test, X_train, y_train, k, metric, mode):
         neighbors = y_train[idx]
 
         # =============== TODO (students, REQUIRED) ===============
-
+        y_pred[i] = np.bincount(neighbors).argmax()   # argmax 平票时取最小下标，即最小标签
         # ===========================================
-        raise NotImplementedError("Implement majority vote in knn_predict")
+
 
     return y_pred
 
@@ -88,9 +98,17 @@ def select_k_by_validation(X_train, y_train, X_val, y_val, ks: List[int], metric
     accs   : list of validation accuracies aligned with ks
     """
     # =============== TODO (students, REQUIRED) ===============
+    accs = []
+    for i, k in enumerate(ks):
+        predicts = knn_predict(X_val, X_train, y_train, k, metric, mode)
+        accuracy = np.sum(predicts == y_val) / y_val.shape[0]
+        accs.append(accuracy)
 
+    best_idx = np.argmax(accs)
+    best_k = ks[best_idx]
+
+    return best_k, accs
     # =========================================================
-    raise NotImplementedError("Implement select_k_by_validation")
 
 
 def run_with_visualization(metric="l2", mode="no_loops"):
