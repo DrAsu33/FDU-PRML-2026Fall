@@ -127,7 +127,85 @@ $$
 
 ## Part 2：决策树
 
-（待完成）
+### 一、实验设置
+
+- 数据：UCI Wine 数据集，13 个数值特征、3 个类别（`0`、`1`、`2`），使用仓库提供的固定划分：训练集 142 条，测试集 36 条。
+- 模型：框架提供的 `DecisionTreeClassifier`，每个节点遍历所有特征及所有样本取值作为候选阈值（`X < thr` 进入左子树），选择得分最高的分裂；默认不限制深度，当最优分裂得分不大于 0 时停止分裂，生成叶节点（`random_state=0`）。
+- 准则：分别使用信息增益、信息增益率、Gini 指数、分类误差率四种准则训练并在测试集上评估。
+
+### 二、代码实现
+
+在 `criterion.py` 中补全了四个函数。记父节点样本集为 $D$，左右子节点为 $D_l$、$D_r$，$p_k$ 为节点中第 $k$ 类样本的比例。四种准则都是"分裂前的不纯度减去分裂后按样本数加权的不纯度"：
+
+| 准则 | 不纯度 / 公式 |
+| --- | --- |
+| 信息增益 | 熵 $H(D) = -\sum_k p_k \log_2 p_k$，$\;IG = H(D) - \frac{\lvert D_l\rvert}{\lvert D\rvert}H(D_l) - \frac{\lvert D_r\rvert}{\lvert D\rvert}H(D_r)$ |
+| 信息增益率 | $\text{GainRatio} = \frac{IG}{\text{SplitInfo}}$，$\;\text{SplitInfo} = -\sum_{i \in \{l, r\}} \frac{\lvert D_i\rvert}{\lvert D\rvert} \log_2 \frac{\lvert D_i\rvert}{\lvert D\rvert}$ |
+| Gini 指数 | $\text{Gini}(D) = 1 - \sum_k p_k^2$，$\;\Delta G = \text{Gini}(D) - \frac{\lvert D_l\rvert}{\lvert D\rvert}\text{Gini}(D_l) - \frac{\lvert D_r\rvert}{\lvert D\rvert}\text{Gini}(D_r)$ |
+| 分类误差率 | $E(D) = 1 - \max_k p_k$，$\;\Delta E = E(D) - \frac{\lvert D_l\rvert}{\lvert D\rvert}E(D_l) - \frac{\lvert D_r\rvert}{\lvert D\rvert}E(D_r)$ |
+
+实现中的边界处理：
+
+- 由于框架会把每个样本的取值都当作阈值尝试，当阈值取到某特征的最小值时，左子节点为空。空子节点的权重 $\frac{\lvert D_i\rvert}{\lvert D\rvert} = 0$，实现中保证此时不出现 $\log_2 0$、对空集合取 $\max$ 或除以零，得分为 0。
+- 信息增益率中，当一侧为空时 $\text{SplitInfo} = 0$，这样的分裂没有意义，直接返回 0。
+
+### 三、测试结果
+
+在 `decision_tree/` 目录下运行 `python test_decision_tree.py`，四种准则的测试准确率均高于 0.85 的要求，结构检查全部通过（脚本正常结束，无断言错误）：
+
+```text
+=== Criterion: info_gain ===
+Accuracy: 0.9167
+Tree depth: 5; leaves: 8
+
+=== Criterion: info_gain_ratio ===
+Accuracy: 0.9444
+Tree depth: 7; leaves: 9
+
+=== Criterion: gini ===
+Accuracy: 0.8611
+Tree depth: 6; leaves: 11
+
+=== Criterion: error_rate ===
+Accuracy: 0.8889
+Tree depth: 4; leaves: 8
+```
+
+### 四、实验结果
+
+#### 1. 结果汇总
+
+| 准则 | 测试准确率 | 测试集错分数（/36） | 训练准确率 | 树深度 | 叶节点数 | 根节点分裂 | 用到的特征数 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| info_gain | 0.9167 | 3 | 1.0000 | 5 | 8 | flavanoids < 2.33 | 5 |
+| info_gain_ratio | **0.9444** | 2 | 1.0000 | 7 | 9 | flavanoids < 0.99 | 6 |
+| gini | 0.8611 | 5 | 1.0000 | 6 | 11 | proline < 760.0 | 7 |
+| error_rate | 0.8889 | 4 | 0.9859 | **4** | **8** | proline < 760.0 | 5 |
+
+#### 2. 决策树可视化
+
+| info_gain | info_gain_ratio |
+| --- | --- |
+| ![info_gain tree](decision_tree/output/wine_info_gain.png) | ![info_gain_ratio tree](decision_tree/output/wine_info_gain_ratio.png) |
+
+| gini | error_rate |
+| --- | --- |
+| ![gini tree](decision_tree/output/wine_gini.png) | ![error_rate tree](decision_tree/output/wine_error_rate.png) |
+
+### 五、结果分析
+
+**（1）测试结果比较**
+
+- 四种准则的测试准确率在 0.86 ~ 0.94 之间，都达到了要求。信息增益率最高（0.9444），信息增益次之（0.9167），分类误差率（0.8889）和 Gini 指数（0.8611）稍低。
+- 测试集只有 36 个样本，每个样本对应约 0.028 的准确率。四种准则的错分数只相差 2 ~ 5 个样本，差距较小，换一种数据划分排名可能会变化，不能据此断定某种准则一定更好。
+- 前三种准则的训练准确率都是 1.0，说明树一直分裂到叶节点完全纯净为止。在没有剪枝和深度限制的情况下，树会拟合训练集中的个别样本，存在一定的过拟合。
+
+**（2）树结构比较**
+
+- **信息增益与信息增益率：** 两者的根节点都选择 `flavanoids`，但阈值不同（2.33 与 0.99）。信息增益在根节点把 142 个训练样本分成大小相近的两部分（81 / 61），树比较均衡（深度 5）。信息增益率除以分裂信息 SplitInfo，会惩罚分得很均匀、SplitInfo 较大的分裂，倾向于先"切下"一小块纯度很高的样本。它的根节点 `flavanoids < 0.99` 只分出 33 个样本，其中 32 个属于类别 2；从图中可以看到，右侧的 109 个样本再一层层剥离，形成一条偏向一侧的长链，所以树最深（7 层）。在这份数据上，这种结构的测试准确率反而最高。
+- **Gini 指数：** 根节点选择 `proline < 760.0`，树的叶节点最多（11 个），用到的特征也最多（7 个）。Gini 指数对类别比例的变化比较敏感，在根节点下方又做了多次细分，其中有些分裂的增益很小（如 `malic_acid` 节点的增益只有 0.0123），只为分开个别样本。这些分裂主要拟合了训练集中的少数点，使 Gini 树结构最复杂，测试准确率在四者中最低。
+- **分类误差率：** 根节点同样是 `proline < 760.0`，但树最浅（4 层）、叶节点最少（8 个），而且是四种准则中唯一训练准确率不到 1.0 的（0.9859）。原因是分类误差只看多数类的比例：如果一次分裂后两个子节点的多数类都和父节点相同，即使类别分布变得更纯，误差也不会下降，增益为 0。根据停止条件，增益为 0 时节点就不再分裂，所以有些节点在还不纯的时候就提前变成了叶节点。这让它对类别分布的变化不够敏感，一般不适合作为分裂准则；但在这里也起到了类似"提前停止"的作用，树更简单，测试准确率（0.8889）反而略高于 Gini。
+- **共同点：** 四棵树的前两层都由 `flavanoids`、`proline`、`color_intensity` 这几个特征构成，对应的特征重要性也排在前列。这说明无论使用哪种准则，这几个特征都是区分三种葡萄酒的关键；不同准则的区别主要体现在下层细分的方式和树的复杂程度上。
 
 ---
 
