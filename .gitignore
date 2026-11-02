@@ -1,4 +1,15 @@
+# solutions only
 Assignment1/k_nearest_neighbors/knn_groundtruth.py
-__pycache__/
-output/
+Assignment2/cifake/solution/
 /.vscode
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv
+
+# generated results & datasets
+output/
+data/
+*.pt
